@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import PixelDust
 
 class ViewController: UIViewController {
 
@@ -17,12 +18,10 @@ class ViewController: UIViewController {
         let gesture = UITapGestureRecognizer(target: self, action: #selector(self.changeBackgroundColor(_:)))
         self.view.addGestureRecognizer(gesture)
 
-        //compareImagesNamed(image1: "black", image2: "white")
-        //compareImagesNamed(image1: "image1", image2: "image1")
-        //compareImagesNamed(image1: "image1", image2: "image1-different")
-        //compareImagesNamed(image1: "ra3-image", image2: "ra3-diff")
+        compareImagesNamed(image1: "black", image2: "white")
+        compareImagesNamed(image1: "image1", image2: "image1")
         compareImagesNamed(image1: "image1", image2: "image1-different")
-        
+        compareImagesNamed(image1: "image1", image2: "image1-different")
     }
 
     private func compareImagesNamed(image1: String, image2: String) {

@@ -327,8 +327,9 @@ float pointVert[] = {
 {
     // Open the file
     NSString* shaderExtension = shaderType == GL_VERTEX_SHADER ? @"vtx" : @"frg";
-    NSString* shaderPath = [[NSBundle mainBundle] pathForResource:shaderName
+    NSString* shaderPath = [[NSBundle bundleForClass:[self class]] pathForResource:shaderName
                                                            ofType:shaderExtension];
+
     NSError* error;
     NSString* shaderString = [NSString stringWithContentsOfFile:shaderPath
                                                        encoding:NSUTF8StringEncoding error:&error];
