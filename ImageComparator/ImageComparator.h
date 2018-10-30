@@ -51,6 +51,8 @@ NS_ASSUME_NONNULL_BEGIN
 
     GLuint       _pointVAO;
     GLuint       _pointVBO;
+
+    BOOL         _imagesSet;
 }
 
 // Image 1 dimensions
@@ -60,6 +62,9 @@ NS_ASSUME_NONNULL_BEGIN
 // Image 2 dimensions
 @property (nonatomic, readonly) GLsizei image2Width;
 @property (nonatomic, readonly) GLsizei image2Height;
+
+// Load initial graphics resources, buffers, shaders, etc.
+-(id)init;
 
 // load resources and set images for comparison
 -(id)initWithImage:(UIImage*)image1 image2:(UIImage*)image2;

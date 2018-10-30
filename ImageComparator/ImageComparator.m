@@ -20,18 +20,34 @@ float quadVertices[] = {
     1.0f,  1.0f,  1.0f, 1.0f
 };
 
+// point position in center of viewport
 float pointVert[] = {
-    // position
     0.0f, 0.0f
 };
 
-// All purpose scratch pad
-static GLubyte data[32 * 1024 * 1024];
+// Max image size equal to iPhone XS Max (landscape or portrait)
+#define IMAGE_MAX_WIDTH  2688
+#define IMAGE_MAX_HEIGHT 2688
+
+// Used to temporarily get texture data in and out of UIKit constructs
+static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
 
 @implementation ImageComparator
 
 @synthesize image1Width = _image1Width, image1Height = _image1Height;
 @synthesize image2Width = _image2Width, image2Height = _image2Height;
+
+-(id)init
+{
+    self = [super init];
+    if(self != nil)
+    {
+        [self initializeResources];
+        _imagesSet = false;
+    }
+
+    return self;
+}
 
 -(id)initWithImage:(UIImage*)image1 image2:(UIImage*)image2;
 {
@@ -93,6 +109,20 @@ static GLubyte data[32 * 1024 * 1024];
     _diffAmpFrgShader = [self compileShader:@"diff_amp" withType:GL_FRAGMENT_SHADER];
     _diffAmpProgram = [self createProgramWithShaders:_diffVtxShader fragmentShader:_diffFrgShader];
 
+    // Bind shaders and set variables
+    glUseProgram(_compareProgram);
+    int tex2Location = glGetUniformLocation(_compareProgram, "img2");
+    glUniform1i(tex2Location, 1);
+
+    // Bind shaders and set variables
+    glUseProgram(_diffProgram);
+    tex2Location = glGetUniformLocation(_diffProgram, "img2");
+    glUniform1i(tex2Location, 1);
+
+    glUseProgram(_diffAmpProgram);
+    tex2Location = glGetUniformLocation(_diffAmpProgram, "img2");
+    glUniform1i(tex2Location, 1);
+
     [self checkGLError:@"init"];
 }
 
@@ -121,6 +151,8 @@ static GLubyte data[32 * 1024 * 1024];
     glDeleteShader(_diffAmpVtxShader);
     glDeleteShader(_diffAmpFrgShader);
     glDeleteShader(_diffAmpProgram);
+
+    _context = nil;
 }
 
 -(void)checkGLError:(NSString*)tag
@@ -133,11 +165,37 @@ static GLubyte data[32 * 1024 * 1024];
 #endif
 }
 
+-(BOOL)dimensionsMatch
+{
+    return (_image1Width == _image2Width && _image1Height == _image2Height);
+}
+
+-(void)resetGLState
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindVertexArray(0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glUseProgram(0);
+}
+
 -(BOOL)compare
 {
+    if(!_imagesSet || ![self dimensionsMatch])
+    {
+        return false;
+    }
+
     [EAGLContext setCurrentContext:_context];
 
     glViewport(0, 0, 1, 1);
+    glUseProgram(_compareProgram);
+    int widthLoc = glGetUniformLocation(_compareProgram, "width");
+    glUniform1f(widthLoc, (GLfloat)_image1Width);
+    int heightLoc = glGetUniformLocation(_compareProgram, "height");
+    glUniform1f(heightLoc, (GLfloat)_image1Height);
     
     // Bind fbo to draw into
     glBindFramebuffer(GL_FRAMEBUFFER, _compareRenderTarget);
@@ -151,36 +209,28 @@ static GLubyte data[32 * 1024 * 1024];
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _image1Tex);
 
-    // Bind shaders and set variables
-    glUseProgram(_compareProgram);
-    int tex2Location = glGetUniformLocation(_compareProgram, "img2");
-    glUniform1i(tex2Location, 1);
-
-    int widthLoc = glGetUniformLocation(_compareProgram, "width");
-    glUniform1f(widthLoc, (GLfloat)_image1Width);
-    int heightLoc = glGetUniformLocation(_compareProgram, "height");
-    glUniform1f(heightLoc, (GLfloat)_image1Height);
-
     // Draw some!
     glDrawArrays(GL_POINTS, 0, 1);
 
     [self checkGLError:@"compare"];
+    [self resetGLState];
 
-    BOOL same = [self getDiffFactor] == 0.0f;
-    return same;
+    return [self getDiffFactor] == 0.0f;
 }
 
 -(float)getDiffFactor
 {
+    [EAGLContext setCurrentContext:_context];
+
     glBindFramebuffer(GL_FRAMEBUFFER, _compareRenderTarget);
 
     glPixelStorei(GL_PACK_ALIGNMENT, 4);
     glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, data);
 
-    float factor = (float)(data[0] + data[1] + data[2]);
     [self checkGLError:@"getDiffFactor"];
+    [self resetGLState];
 
-    return factor;
+    return (float)(data[0] + data[1] + data[2]);
 }
 
 -(UIImage*)getDiffImage
@@ -219,9 +269,6 @@ static GLubyte data[32 * 1024 * 1024];
         glUseProgram(_diffProgram);
     }
 
-    int tex2Location = glGetUniformLocation(_diffProgram, "img2");
-    glUniform1i(tex2Location, 1);
-
     // Draw the entire quad (2 triangles)
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -247,6 +294,7 @@ static GLubyte data[32 * 1024 * 1024];
     CGImageRelease(iref);
 
     [self checkGLError:@"getDiffImage"];
+    [self resetGLState];
 
     return image;
 }
@@ -261,17 +309,24 @@ static GLubyte data[32 * 1024 * 1024];
     _image2Width = image2.size.width;
     _image2Height = image2.size.height;
 
+    NSAssert(_image1Width <= IMAGE_MAX_WIDTH &&
+             _image2Width <= IMAGE_MAX_WIDTH &&
+             _image1Height <= IMAGE_MAX_HEIGHT &&
+             _image2Height <= IMAGE_MAX_HEIGHT, @"Can't support images larger than full screen iPhone XS Max");
+
     [self createDiffRenderTarget];
     [self createCompareRenderTarget];
 
     [self convert:image1 toTexture:_image1Tex];
     [self convert:image2 toTexture:_image2Tex];
+
+    _imagesSet = true;
 }
 
 -(void)convert:(UIImage*)image toTexture:(GLuint)texture
 {
-    GLsizei width  = _image1Width;
-    GLsizei height = _image1Height;
+    GLsizei width  = image.size.width;
+    GLsizei height = image.size.height;
 
     NSUInteger bytesPerPixel = 4;
     NSUInteger bytesPerRow = bytesPerPixel * width;
@@ -297,38 +352,32 @@ static GLubyte data[32 * 1024 * 1024];
 // Create the render target texture for the diff image
 -(void)createDiffRenderTarget
 {
-    [EAGLContext setCurrentContext:_context];
-
-    glBindFramebuffer(GL_FRAMEBUFFER, _diffRenderTarget);
-
-    glBindTexture(GL_TEXTURE_2D, _diffRenderTargetTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, _image1Width, _image1Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _diffRenderTargetTex, 0);
-
-    NSAssert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, @"Render target failed to initialize");
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    [self checkGLError:@"createRenderTarget"];
+    [self initializeRenderTarget:_diffRenderTarget
+                     withTexture:_diffRenderTargetTex
+                        withSize:CGSizeMake(_image1Width, _image1Height)];
 }
 
 // Create a 1x1 target texture and FBO for the simple super-sampling compare
 -(void)createCompareRenderTarget
 {
+    [self initializeRenderTarget:_compareRenderTarget
+                     withTexture:_compareRenderTargetTex
+                        withSize:CGSizeMake(1, 1)];
+}
+
+-(void)initializeRenderTarget:(GLuint)targetFBO withTexture:(GLuint)glTexture withSize:(CGSize)size
+{
     [EAGLContext setCurrentContext:_context];
 
-    glBindFramebuffer(GL_FRAMEBUFFER, _compareRenderTarget);
+    glBindFramebuffer(GL_FRAMEBUFFER, targetFBO);
 
-    glBindTexture(GL_TEXTURE_2D, _compareRenderTargetTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glBindTexture(GL_TEXTURE_2D, glTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (GLsizei)size.width, (GLsizei)size.height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _compareRenderTargetTex, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, glTexture, 0);
 
     NSAssert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, @"Render target failed to initialize");
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
