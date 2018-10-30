@@ -7,7 +7,7 @@
 
 #import "ImageComparator.h"
 
-#define DEBUG_GL_ERRORS
+//#define DEBUG_GL_ERRORS
 
 float quadVertices[] = {
     // positions   // texCoords
@@ -25,18 +25,21 @@ float pointVert[] = {
     0.0f, 0.0f
 };
 
+// All purpose scratch pad
+static GLubyte data[32 * 1024 * 1024];
+
 @implementation ImageComparator
 
 @synthesize image1Width = _image1Width, image1Height = _image1Height;
 @synthesize image2Width = _image2Width, image2Height = _image2Height;
 
--(id)initWithImages:(UIImage*)image1 image2:(UIImage*)image2;
+-(id)initWithImage:(UIImage*)image1 image2:(UIImage*)image2;
 {
     self = [super init];
     if(self != nil)
     {
         [self initializeResources];
-        [self setImages:image1 image2:image2];
+        [self setImage:image1 image2:image2];
     }
 
     return self;
@@ -86,6 +89,10 @@ float pointVert[] = {
     _diffFrgShader = [self compileShader:@"diff" withType:GL_FRAGMENT_SHADER];
     _diffProgram = [self createProgramWithShaders:_diffVtxShader fragmentShader:_diffFrgShader];
 
+    _diffAmpVtxShader = [self compileShader:@"diff_amp" withType:GL_VERTEX_SHADER];
+    _diffAmpFrgShader = [self compileShader:@"diff_amp" withType:GL_FRAGMENT_SHADER];
+    _diffAmpProgram = [self createProgramWithShaders:_diffVtxShader fragmentShader:_diffFrgShader];
+
     [self checkGLError:@"init"];
 }
 
@@ -110,6 +117,10 @@ float pointVert[] = {
     glDeleteShader(_diffVtxShader);
     glDeleteShader(_diffFrgShader);
     glDeleteShader(_diffProgram);
+
+    glDeleteShader(_diffAmpVtxShader);
+    glDeleteShader(_diffAmpFrgShader);
+    glDeleteShader(_diffAmpProgram);
 }
 
 -(void)checkGLError:(NSString*)tag
@@ -163,21 +174,21 @@ float pointVert[] = {
 {
     glBindFramebuffer(GL_FRAMEBUFFER, _compareRenderTarget);
 
-    GLubyte *data = (GLubyte*)malloc(4 * sizeof(GLubyte));
-
     glPixelStorei(GL_PACK_ALIGNMENT, 4);
     glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, data);
 
     float factor = (float)(data[0] + data[1] + data[2]);
-    printf("diff factor: %f\n", factor);
     [self checkGLError:@"getDiffFactor"];
-
-    free(data);
 
     return factor;
 }
 
 -(UIImage*)getDiffImage
+{
+    return [self getDiffImage:false];
+}
+
+-(UIImage*)getDiffImage:(BOOL)amplify
 {
     GLsizei width  = _image1Width;
     GLsizei height = _image1Height;
@@ -199,7 +210,15 @@ float pointVert[] = {
     glBindTexture(GL_TEXTURE_2D, _image1Tex);
 
     // Bind shaders and set variables
-    glUseProgram(_diffProgram);
+    if(amplify)
+    {
+        glUseProgram(_diffAmpProgram);
+    }
+    else
+    {
+        glUseProgram(_diffProgram);
+    }
+
     int tex2Location = glGetUniformLocation(_diffProgram, "img2");
     glUniform1i(tex2Location, 1);
 
@@ -207,7 +226,6 @@ float pointVert[] = {
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
     NSInteger dataLength = width * height * 4;
-    GLubyte *data = (GLubyte*)malloc(dataLength * sizeof(GLubyte));
 
     glPixelStorei(GL_PACK_ALIGNMENT, 4);
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
@@ -224,7 +242,6 @@ float pointVert[] = {
     UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
 
-    free(data);
     CFRelease(ref);
     CFRelease(colorspace);
     CGImageRelease(iref);
@@ -234,7 +251,7 @@ float pointVert[] = {
     return image;
 }
 
--(void)setImages:(UIImage*)image1 image2:(UIImage*)image2
+-(void)setImage:(UIImage*)image1 image2:(UIImage*)image2
 {
     [EAGLContext setCurrentContext:_context];
 
@@ -256,12 +273,10 @@ float pointVert[] = {
     GLsizei width  = _image1Width;
     GLsizei height = _image1Height;
 
-    GLubyte* textureData = (GLubyte *)malloc(width * height * 4);
-
     NSUInteger bytesPerPixel = 4;
     NSUInteger bytesPerRow = bytesPerPixel * width;
     NSUInteger bitsPerComponent = 8;
-    CGContextRef context = CGBitmapContextCreate(textureData, width, height,
+    CGContextRef context = CGBitmapContextCreate(data, width, height,
                                                  bitsPerComponent, bytesPerRow, CGImageGetColorSpace(image.CGImage),
                                                  kCGImageAlphaPremultipliedLast);
 
@@ -273,10 +288,8 @@ float pointVert[] = {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureData);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
     glBindTexture(GL_TEXTURE_2D, 0);
-
-    free(textureData);
 
     [self checkGLError:@"convert"];
 }

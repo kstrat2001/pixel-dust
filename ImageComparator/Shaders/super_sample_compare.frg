@@ -17,8 +17,8 @@ void main()
     {
         for(float j = 0.0; j < height; j+= 2.0)
         {
-            float x = i + 0.5;
-            float y = j + 0.5;
+            float x = i + 0.49;
+            float y = j + 0.49;
             vec2 coords = vec2(x / width, y / height);
             vec4 sample1 = texture(img1, coords);
             vec4 sample2 = texture(img2, coords);

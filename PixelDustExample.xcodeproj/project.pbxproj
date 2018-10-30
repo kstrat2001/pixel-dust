@@ -79,7 +79,7 @@
 		ACB3733B21850B03000E4A90 = {
 			isa = PBXGroup;
 			children = (
-				ACB3734621850B03000E4A90 /* PixelDust */,
+				ACB3734621850B03000E4A90 /* PixelDustExample */,
 				ACB3735B21850B09000E4A90 /* PixelDustTests */,
 				ACB3734521850B03000E4A90 /* Products */,
 				B8CC10D6399FD37B114B5681 /* Pods */,
@@ -96,7 +96,7 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		ACB3734621850B03000E4A90 /* PixelDust */ = {
+		ACB3734621850B03000E4A90 /* PixelDustExample */ = {
 			isa = PBXGroup;
 			children = (
 				ACB3734721850B03000E4A90 /* AppDelegate.swift */,
@@ -106,7 +106,7 @@
 				ACB3735021850B09000E4A90 /* LaunchScreen.storyboard */,
 				ACB3735321850B09000E4A90 /* Info.plist */,
 			);
-			path = PixelDust;
+			path = PixelDustExample;
 			sourceTree = "<group>";
 		};
 		ACB3735B21850B09000E4A90 /* PixelDustTests */ = {
@@ -472,7 +472,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = LR3D5ZYZX3;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				INFOPLIST_FILE = PixelDust/Info.plist;
+				INFOPLIST_FILE = "$(SRCROOT)/PixelDustExample/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -496,7 +496,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = LR3D5ZYZX3;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				INFOPLIST_FILE = PixelDust/Info.plist;
+				INFOPLIST_FILE = "$(SRCROOT)/PixelDustExample/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

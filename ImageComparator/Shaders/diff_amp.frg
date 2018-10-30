@@ -13,5 +13,11 @@ void main()
     vec4 sample2 = texture(img2, TexCoords);
     vec3 diff = abs(vec3(sample1.rgb - sample2.rgb));
 
+    // amplify diffs to be white
+    diff.r += diff.g + diff.b;
+    diff.g += diff.r + diff.b;
+    diff.b += diff.r + diff.g;
+    diff = ceil(diff);
+
     FragColor = vec4(diff, 1.0);
 }

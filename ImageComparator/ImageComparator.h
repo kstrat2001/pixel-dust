@@ -42,6 +42,10 @@ NS_ASSUME_NONNULL_BEGIN
     GLuint       _diffFrgShader;
     GLuint       _diffProgram;
 
+    GLuint       _diffAmpVtxShader;
+    GLuint       _diffAmpFrgShader;
+    GLuint       _diffAmpProgram;
+
     GLuint       _quadVAO;
     GLuint       _quadVBO;
 
@@ -58,15 +62,26 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) GLsizei image2Height;
 
 // load resources and set images for comparison
--(id)initWithImages:(UIImage*)image1 image2:(UIImage*)image2;
+-(id)initWithImage:(UIImage*)image1 image2:(UIImage*)image2;
 
 // set the images to be compared
--(void)setImages:(UIImage*)image1 image2:(UIImage*)image2;
+-(void)setImage:(UIImage*)image1 image2:(UIImage*)image2;
 
 // execute the comparison on the gpu
 -(BOOL)compare;
 
+// Only valid directly after calling compare
+// The factor is a number representing magnitude of
+// differences per quad pixel set.  It is not a normalized
+// 0 to 1.0 value, rather magnitude of differences detected
+// higher numbers mean more differences among quad pixel
+// bilinear samples
+-(float)getDiffFactor;
+
 // Get the image that represents the differences in the inputs
+-(UIImage*)getDiffImage:(BOOL)amplify;
+
+// Amplify is off by default
 -(UIImage*)getDiffImage;
 
 @end
