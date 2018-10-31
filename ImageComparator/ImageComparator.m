@@ -421,8 +421,7 @@ float pointVert[] = {
     if (compileSuccess == GL_FALSE) {
         GLchar messages[256];
         glGetShaderInfoLog(shaderHandle, sizeof(messages), 0, &messages[0]);
-        NSString *messageString = [NSString stringWithUTF8String:messages];
-        NSAssert(false, @"%@.%@ compiler error: %@", shaderName, shaderExtension, messageString);
+        NSAssert(false, @"%@.%@ compiler error: %@", shaderName, shaderExtension, [NSString stringWithUTF8String:messages]);
         return 0;
     }
 
@@ -441,8 +440,7 @@ float pointVert[] = {
     if (linkSuccess == GL_FALSE) {
         GLchar messages[256];
         glGetProgramInfoLog(programHandle, sizeof(messages), 0, &messages[0]);
-        NSString *messageString = [NSString stringWithUTF8String:messages];
-        NSAssert(false, @"Shader linker error: %@", messageString);
+        NSAssert(false, @"Shader linker error: %@", [NSString stringWithUTF8String:messages]);
         return 0;
     }
 

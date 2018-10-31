@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
   spec.name         = 'PixelDust'
-  spec.version      = '0.1.4'
+  spec.version      = 'v0.1.5'
   spec.summary      = 'PixelDust GPU image processing library'
 
   spec.platform     = :ios
