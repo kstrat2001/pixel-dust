@@ -21,6 +21,7 @@ class ViewController: UIViewController {
         compareImagesNamed(image1: "black", image2: "white")
         compareImagesNamed(image1: "image1", image2: "image1")
         compareImagesNamed(image1: "image1", image2: "image1-different")
+        compareImagesNamed(image1: "white", image2: "white-first-pixel-black")
         compareImagesNamed(image1: "image1", image2: "image1-different")
     }
 
@@ -39,7 +40,7 @@ class ViewController: UIViewController {
         let end = start.timeIntervalSinceNow * -1000.0 // convert to ms
         print("Compare time for \(image1) & \(image2): \(end) milliseconds")
         let matchStr = imagesMatch ? "match" : "do not match"
-        print("\(image1) & \(image2) \(matchStr), diffFactor: \(comparator.getDiffFactor())")
+        print("\(image1) & \(image2) \(matchStr), diffFactor: \(comparator.diffFactor)")
         
         if !imagesMatch {
             imageView.image = comparator.getDiffImage()
@@ -49,8 +50,10 @@ class ViewController: UIViewController {
     @objc func changeBackgroundColor(_ sender: UITapGestureRecognizer) {
         if imageView.backgroundColor == .white {
             imageView.backgroundColor = .black
+            view.backgroundColor = .black
         } else {
             imageView.backgroundColor = .white
+            view.backgroundColor = .white
         }
     }
 }

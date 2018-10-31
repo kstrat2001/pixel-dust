@@ -9,6 +9,13 @@
 
 //#define DEBUG_GL_ERRORS
 
+// Max image size equal to iPhone XS Max (landscape or portrait)
+#define IMAGE_MAX_WIDTH  2688
+#define IMAGE_MAX_HEIGHT 2688
+
+// Used to temporarily get texture data in and out of UIKit constructs
+static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
+
 float quadVertices[] = {
     // positions   // texCoords
     -1.0f,  1.0f,  0.0f, 1.0f,
@@ -25,17 +32,11 @@ float pointVert[] = {
     0.0f, 0.0f
 };
 
-// Max image size equal to iPhone XS Max (landscape or portrait)
-#define IMAGE_MAX_WIDTH  2688
-#define IMAGE_MAX_HEIGHT 2688
-
-// Used to temporarily get texture data in and out of UIKit constructs
-static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
-
 @implementation ImageComparator
 
 @synthesize image1Width = _image1Width, image1Height = _image1Height;
 @synthesize image2Width = _image2Width, image2Height = _image2Height;
+@synthesize diffFactor = _diffFactor;
 
 -(id)init
 {
@@ -44,6 +45,7 @@ static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
     {
         [self initializeResources];
         _imagesSet = false;
+        _diffFactor = 0.0f;
     }
 
     return self;
@@ -66,6 +68,7 @@ static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
     _context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
     [EAGLContext setCurrentContext:_context];
     glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
 
     // Create render target for 1x1 super sample compare
     glGenFramebuffers(1, &_compareRenderTarget);
@@ -107,7 +110,7 @@ static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
 
     _diffAmpVtxShader = [self compileShader:@"diff_amp" withType:GL_VERTEX_SHADER];
     _diffAmpFrgShader = [self compileShader:@"diff_amp" withType:GL_FRAGMENT_SHADER];
-    _diffAmpProgram = [self createProgramWithShaders:_diffVtxShader fragmentShader:_diffFrgShader];
+    _diffAmpProgram = [self createProgramWithShaders:_diffAmpVtxShader fragmentShader:_diffAmpFrgShader];
 
     // Bind shaders and set variables
     glUseProgram(_compareProgram);
@@ -128,11 +131,12 @@ static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
 
 -(void)dealloc
 {
-    glDeleteBuffers(1, &_compareRenderTarget);
-    glDeleteBuffers(1, &_diffRenderTarget);
-    glDeleteBuffers(1, &_quadVAO);
+    glDeleteFramebuffers(1, &_compareRenderTarget);
+    glDeleteFramebuffers(1, &_diffRenderTarget);
+
+    glDeleteVertexArrays(1, &_quadVAO);
     glDeleteBuffers(1, &_quadVBO);
-    glDeleteBuffers(1, &_pointVAO);
+    glDeleteVertexArrays(1, &_pointVAO);
     glDeleteBuffers(1, &_pointVBO);
 
     glDeleteTextures(1, &_compareRenderTargetTex);
@@ -142,15 +146,15 @@ static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
 
     glDeleteShader(_compareVtxShader);
     glDeleteShader(_compareFrgShader);
-    glDeleteShader(_compareProgram);
+    glDeleteProgram(_compareProgram);
 
     glDeleteShader(_diffVtxShader);
     glDeleteShader(_diffFrgShader);
-    glDeleteShader(_diffProgram);
+    glDeleteProgram(_diffProgram);
 
     glDeleteShader(_diffAmpVtxShader);
     glDeleteShader(_diffAmpFrgShader);
-    glDeleteShader(_diffAmpProgram);
+    glDeleteProgram(_diffAmpProgram);
 
     _context = nil;
 }
@@ -213,24 +217,23 @@ static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
     glDrawArrays(GL_POINTS, 0, 1);
 
     [self checkGLError:@"compare"];
-    [self resetGLState];
-
-    return [self getDiffFactor] == 0.0f;
-}
-
--(float)getDiffFactor
-{
-    [EAGLContext setCurrentContext:_context];
-
-    glBindFramebuffer(GL_FRAMEBUFFER, _compareRenderTarget);
 
     glPixelStorei(GL_PACK_ALIGNMENT, 4);
     glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, data);
 
-    [self checkGLError:@"getDiffFactor"];
     [self resetGLState];
 
-    return (float)(data[0] + data[1] + data[2]);
+    /*
+    GLubyte r = data[0];
+    GLubyte g = data[1];
+    GLubyte b = data[2];
+    GLubyte a = data[3];
+    printf("r: %x - g: %x - b: %x - a: %x\n", r, g, b, a);
+    printf("width: %d, height %d\n", _image1Width, _image1Height);
+    */
+    
+    _diffFactor = (float)(data[0] + data[1] + data[2] + data[3]);
+    return _diffFactor == 0.0f;
 }
 
 -(UIImage*)getDiffImage
@@ -303,11 +306,11 @@ static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
 {
     [EAGLContext setCurrentContext:_context];
 
-    _image1Width = image1.size.width;
-    _image1Height = image1.size.height;
+    _image1Width = (GLsizei)CGImageGetWidth(image1.CGImage);
+    _image1Height = (GLsizei)CGImageGetHeight(image1.CGImage);
 
-    _image2Width = image2.size.width;
-    _image2Height = image2.size.height;
+    _image2Width = (GLsizei)CGImageGetWidth(image2.CGImage);
+    _image2Height = (GLsizei)CGImageGetHeight(image2.CGImage);
 
     NSAssert(_image1Width <= IMAGE_MAX_WIDTH &&
              _image2Width <= IMAGE_MAX_WIDTH &&
@@ -321,12 +324,13 @@ static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
     [self convert:image2 toTexture:_image2Tex];
 
     _imagesSet = true;
+    _diffFactor = 0.0f;
 }
 
 -(void)convert:(UIImage*)image toTexture:(GLuint)texture
 {
-    GLsizei width  = image.size.width;
-    GLsizei height = image.size.height;
+    GLsizei width  = (GLsizei)CGImageGetWidth(image.CGImage);
+    GLsizei height = (GLsizei)CGImageGetHeight(image.CGImage);
 
     NSUInteger bytesPerPixel = 4;
     NSUInteger bytesPerRow = bytesPerPixel * width;
@@ -372,7 +376,7 @@ static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
     glBindFramebuffer(GL_FRAMEBUFFER, targetFBO);
 
     glBindTexture(GL_TEXTURE_2D, glTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (GLsizei)size.width, (GLsizei)size.height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)size.width, (GLsizei)size.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -418,9 +422,8 @@ static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
         GLchar messages[256];
         glGetShaderInfoLog(shaderHandle, sizeof(messages), 0, &messages[0]);
         NSString *messageString = [NSString stringWithUTF8String:messages];
-        NSLog(@"Error compiling shader: %@.%@", shaderName, shaderExtension);
-        NSLog(@"%@", messageString);
-        exit(1);
+        NSAssert(false, @"%@.%@ compiler error: %@", shaderName, shaderExtension, messageString);
+        return 0;
     }
 
     return shaderHandle;
@@ -439,8 +442,7 @@ static GLubyte data[IMAGE_MAX_WIDTH * IMAGE_MAX_HEIGHT * 4];
         GLchar messages[256];
         glGetProgramInfoLog(programHandle, sizeof(messages), 0, &messages[0]);
         NSString *messageString = [NSString stringWithUTF8String:messages];
-        NSLog(@"%@", messageString);
-        NSAssert(false, @"Could not link shader program");
+        NSAssert(false, @"Shader linker error: %@", messageString);
         return 0;
     }
 

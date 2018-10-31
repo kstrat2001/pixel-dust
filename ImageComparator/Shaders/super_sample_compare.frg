@@ -10,7 +10,7 @@ uniform sampler2D img2;
 
 void main()
 {
-    vec3 diff = vec3(0, 0, 0);
+    vec4 diff = vec4(0, 0, 0, 0);
 
     for(float i = 0.0; i < width; i += 2.0)
     {
@@ -21,9 +21,9 @@ void main()
             vec2 coords = vec2(x / width, y / height);
             vec4 sample1 = texture(img1, coords);
             vec4 sample2 = texture(img2, coords);
-            diff += abs(sample1.rgb - sample2.rgb);
+            diff += abs(sample1 - sample2);
         }
     }
 
-    FragColor = vec4(diff, 1.0);
+    FragColor = diff;
 }

@@ -27,28 +27,28 @@ class PixelDustTests: XCTestCase {
         comparator.setImage(uiImage1, image2: uiImage2)
 
         XCTAssertFalse(comparator.compare())
-        XCTAssertGreaterThan(comparator.getDiffFactor(), 0)
+        XCTAssertGreaterThan(comparator.diffFactor, 0)
         add(XCTAttachment(image: comparator.getDiffImage(true)))
     }
 
-    func testDifferentImagesDiff() {
+    func testDifferentImages() {
         let comparator = ImageComparator(image: UIImage(named: "image1")!, image2: UIImage(named: "image1-different")!)
         XCTAssertFalse(comparator.compare());
-        XCTAssertGreaterThan(comparator.getDiffFactor(), 0.0)
-        add(XCTAttachment(image: comparator.getDiffImage()))
+        XCTAssertGreaterThan(comparator.diffFactor, 0.0)
+        add(XCTAttachment(image: comparator.getDiffImage(true)))
     }
 
     func testAmplifiedDiff() {
         let comparator = ImageComparator(image: UIImage(named: "image1")!, image2: UIImage(named: "image1-different")!)
         XCTAssertFalse(comparator.compare());
-        XCTAssertGreaterThan(comparator.getDiffFactor(), 0.0)
+        XCTAssertGreaterThan(comparator.diffFactor, 0.0)
         add(XCTAttachment(image: comparator.getDiffImage(true)))
     }
 
     func testImageSameSame() {
         let comparator = ImageComparator(image: UIImage(named: "image1")!, image2: UIImage(named: "image1-same")!)
         XCTAssertTrue(comparator.compare());
-        XCTAssertEqual(0.0, comparator.getDiffFactor())
+        XCTAssertEqual(0.0, comparator.diffFactor)
         add(XCTAttachment(image: comparator.getDiffImage()))
         add(XCTAttachment(image: comparator.getDiffImage(true)))
     }
@@ -56,19 +56,23 @@ class PixelDustTests: XCTestCase {
     func testOnePixelDiff() {
         let comparator = ImageComparator(image: UIImage(named: "white-first-pixel-black")!, image2: UIImage(named: "white")!)
         XCTAssertFalse(comparator.compare())
-        XCTAssertGreaterThan(comparator.getDiffFactor(), 0.0)
+        XCTAssertGreaterThan(comparator.diffFactor, 0.0)
+        add(XCTAttachment(image: comparator.getDiffImage(true)))
     }
 
     func testDifferentDimensions() {
         let comparator = ImageComparator(image: UIImage(named: "image1")!, image2: UIImage(named: "sideways")!)
         XCTAssertFalse(comparator.compare())
+        add(XCTAttachment(image: comparator.getDiffImage(true)))
     }
 
     func testSetImageAgain() {
         let comparator = ImageComparator(image: UIImage(named: "image1")!, image2: UIImage(named: "image1-same")!)
         XCTAssertTrue(comparator.compare())
+        add(XCTAttachment(image: comparator.getDiffImage(true)))
         
         comparator.setImage(UIImage(named: "image1")!, image2: UIImage(named: "sideways")!)
         XCTAssertFalse(comparator.compare())
+        add(XCTAttachment(image: comparator.getDiffImage(true)))
     }
 }

@@ -63,6 +63,14 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) GLsizei image2Width;
 @property (nonatomic, readonly) GLsizei image2Height;
 
+// Only valid directly after calling compare
+// The factor is a number representing magnitude of
+// differences per quad pixel set.  It is not a normalized
+// 0 to 1.0 value, rather magnitude of differences detected
+// higher numbers mean more differences among quad pixel
+// bilinear samples
+@property (nonatomic, readonly) float diffFactor;
+
 // Load initial graphics resources, buffers, shaders, etc.
 -(id)init;
 
@@ -74,14 +82,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 // execute the comparison on the gpu
 -(BOOL)compare;
-
-// Only valid directly after calling compare
-// The factor is a number representing magnitude of
-// differences per quad pixel set.  It is not a normalized
-// 0 to 1.0 value, rather magnitude of differences detected
-// higher numbers mean more differences among quad pixel
-// bilinear samples
--(float)getDiffFactor;
 
 // Get the image that represents the differences in the inputs
 -(UIImage*)getDiffImage:(BOOL)amplify;
